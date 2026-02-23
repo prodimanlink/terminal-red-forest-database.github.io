@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL - Red Forest Database</title>
+    <style>
+        :root {
+            --bg-color: #0a0a09;
+            --accent: #d35400;
+            --text: #00ff41;
+            --border: #2a2a24;
+            --danger: #ff3e3e;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Ефект ЕПТ-монітора */
+        body::after {
+            content: " ";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 2px 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .monitor {
+            width: 95%;
+            max-width: 1000px;
+            height: 90vh;
+            border: 10px solid #222;
+            background: #0f0f0d;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: inset 0 0 50px rgba(0,255,65,0.05);
+            position: relative;
+        }
+
+        /* --- ФЕЙКОВЕ ЗАВАНТАЖЕННЯ --- */
+        #loading-overlay {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0a0a09;
+            z-index: 2000;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .progress-container {
+            width: 300px;
+            border: 1px solid var(--text);
+            padding: 3px;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 20px;
+            background: var(--text);
+        }
+
+        #error-msg {
+            display: none;
+            color: var(--danger);
+            border: 2px solid var(--danger);
+            padding: 30px;
+            background: rgba(255, 0, 0, 0.1);
+            animation: blink 0.6s infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+        /* --- НАВІГАЦІЯ --- */
+        .nav { display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-bottom: 15px; }
+        .nav-btn { background: none; border: 1px solid var(--text); color: var(--text); padding: 4px 10px; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; font-family: inherit; }
+        .nav-btn.active { background: var(--text); color: #000; }
+
+        /* --- КОНТЕНТ --- */
+        .content-area { flex-grow: 1; overflow-y: auto; padding-right: 10px; }
+        .page { display: none; }
+        .page.active { display: block; animation: scanline 0.2s ease-out; }
+
+        h2 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px; font-size: 1.2rem; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-bottom: 25px; }
+        .box { border: 1px solid var(--border); padding: 10px; font-size: 0.75rem; background: rgba(0,255,65,0.01); line-height: 1.4; }
+        .box b { color: var(--accent); display: block; margin-bottom: 2px; text-transform: uppercase; }
+
+        .dl-btn { color:var(--accent); text-decoration: none; border: 2px solid var(--accent); padding: 15px 30px; cursor: pointer; background: none; font-family: inherit; font-weight: bold; font-size: 1rem; }
+        .dl-btn:hover { background: var(--accent); color: #000; box-shadow: 0 0 15px var(--accent); }
+
+        .footer-news { font-size: 0.7rem; border-top: 1px solid var(--border); padding-top: 10px; color: var(--accent); }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: var(--text); }
+    </style>
+</head>
+<body>
+
+<div class="monitor">
+    <div id="loading-overlay">
+        <div id="load-status">> INITIALIZING UPLOAD...</div>
+        <div id="p-cont" class="progress-container">
+            <div id="p-bar" class="progress-bar"></div>
+        </div>
+        <div id="p-perc">0%</div>
+
+        <div id="error-msg">
+            <h1>[ КРИТИЧНА ПОМИЛКА ]</h1>
+            <p style="font-size: 1.5rem;">НЕМАН ДЕНЯГ НА РОЗРОБКУ</p>
+            <p>ПОПОВНІТЬ БАЛАНС СТАЛКЕРА ДЛЯ ПРОДОВЖЕННЯ</p>
+            <br>
+            <button onclick="location.reload()" style="background:none; border:1px solid var(--danger); color:var(--danger); padding:10px; cursor:pointer; font-family:inherit;">ПЕРЕЗАВАНТАЖИТИ СИСТЕМУ</button>
+        </div>
+    </div>
+
+    <div class="nav">
+        <button class="nav-btn active" onclick="openTab('home', this)">Головна</button>
+        <button class="nav-btn" onclick="openTab('surv', this)">Виживання</button>
+        <button class="nav-btn" onclick="openTab('mobs', this)">Мутанти</button>
+        <button class="nav-btn" onclick="openTab('anom', this)">Аномалії</button>
+        <button class="nav-btn" onclick="openTab('gear', this)">Крафт</button>
+    </div>
+
+    <div class="content-area">
+        <div id="home" class="page active">
+            <h1>RED FOREST PROJECT v1.0.4</h1>
+            <p>> Стан зв'язку: Стабільний (через РЛС "Дуга")</p>
+            <p>> Поточна локація: Зона відчуження</p>
+            <br>
+            <div style="text-align: center; margin: 30px 0;">
+                <button class="dl-btn" onclick="runLoad()">[ ЗАВАНТАЖИТИ MOD.JAR ]</button>
+            </div>
+            <div class="box">
+                <b>ЛОГ ОНОВЛЕНЬ:</b>
+                - Реалізовано 12 видів аномалій.<br>
+                - Додано систему накопичення рад-одиниць.<br>
+                - Мутанти тепер мають AI "зграї".
+            </div>
+        </div>
+
+        <div id="surv" class="page">
+            <h2>ПРОТОКОЛИ ВИЖИВАННЯ</h2>
+            <div class="grid">
+                <div class="box"><b>Свинцевий пил</b>Ресурс для крафту захисних шарів.</div>
+                <div class="box"><b>Антирад</b>Миттєво виводить 25% радіації.</div>
+                <div class="box"><b>Горілка</b>Тимчасовий опір фону (але хитає камеру).</div>
+                <div class="box"><b>Дозиметр</b>Звуковий сигнал (beeps) при наближенні до фону.</div>
+                <div class="box"><b>Фільтри ГП-5</b>Ресурс для роботи протигаза (10 хв життя).</div>
+                <div class="box"><b>Генні мутації</b>Перки при тривалому опроміненні.</div>
+                <div class="box"><b>Заражена їжа</b>Потребує дезактивації перед вживанням.</div>
+                <div class="box"><b>Свинцевий ящик</b>Єдиний спосіб безпечно носити артефакти.</div>
+                <div class="box"><b>Кислотний дощ</b>Псує броню, якщо ви не під дахом.</div>
+                <div class="box"><b>Статика</b>Удари струмом біля покинутих ЛЕП.</div>
+                <div class="box"><b>Жовтий пил</b>Поступово знижує міцність предметів.</div>
+                <div class="box"><b>Сховище</b>Тільки в них можна безпечно спати.</div>
+            </div>
+        </div>
+
+        <div id="mobs" class="page">
+            <h2>БЕСТІАРІЙ (RECOGNIZED TARGETS)</h2>
+            <div class="grid">
+                <div class="box"><b>Псевдособака</b>Створює фантомів, що збивають з пантелику.</div>
+                <div class="box"><b>Кровосіс</b>Повна невидимість у режимі очікування.</div>
+                <div class="box"><b>Контролер</b>Пси-атака: вириває зброю з рук.</div>
+                <div class="box"><b>Бюрер</b>Телекінетичний щит (відбиває стріли).</div>
+                <div class="box"><b>Полтергейст</b>Жбурляє блоки та підпалює землю.</div>
+                <div class="box"><b>Тушканчики</b>Малі розміри, великі групи (до 20 особин).</div>
+                <div class="box"><b>Снорк</b>Далекі стрибки з високої трави.</div>
+                <div class="box"><b>Псевдогігант</b>Тупіт викликає землетрус та шкоду.</div>
+                <div class="box"><b>Зомбовані</b>Використовують луки/арбалети, мають броню.</div>
+                <div class="box"><b>Пацюк-детонатор</b>Вибухає хмарою токсинів при смерті.</div>
+                <div class="box"><b>Крук-шпигун</b>Кричить, коли бачить гравця (наводить мобів).</div>
+                <div class="box"><b>Броньований Ведмідь</b>Несприйнятливий до звичайних мечів.</div>
+            </div>
+        </div>
+
+        <div id="anom" class="page">
+            <h2>АНАЛІЗ СЕРЕДОВИЩА</h2>
+            <div class="grid">
+                <div class="box"><b>Трамплін</b>Гравітаційний поштовх вгору.</div>
+                <div class="box"><b>Електра</b>Розряд блискавки при контакті.</div>
+                <div class="box"><b>Жарка</b>Стовп полум'я (активується болтом).</div>
+                <div class="box"><b>Вир</b>Стягує все живе в центр і ламає кістки.</div>
+                <div class="box"><b>Холодець</b>Кислотна калюжа, що роз'їдає чоботи.</div>
+                <div class="box"><b>Просторова бульба</b>Телепорт у випадкове місце біому.</div>
+                <div class="box"><b>Гриб "Радій"</b>Світиться. Дає Night Vision + Poison.</div>
+                <div class="box"><b>Співаюча трава</b>Звукові галюцинації (дитячий плач).</div>
+                <div class="box"><b>Скляні квіти</b>Джерело кварцу в лісі.</div>
+                <div class="box"><b>Залізне дерево</b>Блок з міцністю обсидіану.</div>
+                <div class="box"><b>Руді ліани</b>Надшвидке уповільнення руху.</div>
+                <div class="box"><b>Чорна ягода</b>Ефект Confusion на 30 секунд.</div>
+                <div class="box"><b>ВИКИД</b><b style="color:var(--danger)">FATAL EVENT.</b> Небо червоніє.</div>
+            </div>
+        </div>
+
+        <div id="gear" class="page">
+            <h2>ОБЛАДНАННЯ ТА АРТЕФАКТИ</h2>
+            <div class="grid">
+                <div class="box"><b>Детектор Велес</b>Звуковий радар для пошуку предметів.</div>
+                <div class="box"><b>Болти</b>Предмет для розвідки аномалій.</div>
+                <div class="box"><b>Екзоскелет</b>Дозволяє носити +2 стаки ваги.</div>
+                <div class="box"><b>Слюда</b>Повільно виводить радіацію.</div>
+                <div class="box"><b>Мамині буси</b>+4 одиниці максимального HP.</div>
+                <div class="box"><b>Нічна зірка</b>High Jump II під час носіння.</div>
+                <div class="box"><b>Артефакт Кристал</b>Повний імунітет до вогню.</div>
+                <div class="box"><b>Протигаз</b>Захист від туману та спор.</div>
+                <div class="box"><b>Ремнабір</b>Чинить предмети без ковадла.</div>
+                <div class="box"><b>Налобний ліхтар</b>Світло без займання рук.</div>
+                <div class="box"><b>Рація</b>Попередження про викид за 60 секунд.</div>
+                <div class="box"><b>Маяк</b>Створює точку на карті в тумані.</div>
+                <div class="box"><b>Станція дослідження</b>Блок для синтезу артефактів.</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-news">
+        <marquee scrollamount="4">> УВАГА: Рівень фону підвищено... Наступний викид через 04:20... Слава Моноліту...</marquee>
+    </div>
+</div>
+
+<script>
+    function openTab(id, btn) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        btn.classList.add('active');
+    }
+
+    function runLoad() {
+        const overlay = document.getElementById('loading-overlay');
+        const bar = document.getElementById('p-bar');
+        const perc = document.getElementById('p-perc');
+        const status = document.getElementById('load-status');
+        const error = document.getElementById('error-msg');
+        
+        overlay.style.display = 'flex';
+        error.style.display = 'none';
+        document.getElementById('p-cont').style.display = 'block';
+        perc.style.display = 'block';
+        
+        let w = 0;
+        const itv = setInterval(() => {
+            if (w >= 100) {
+                clearInterval(itv);
+                status.style.display = 'none';
+                perc.style.display = 'none';
+                document.getElementById('p-cont').style.display = 'none';
+                error.style.display = 'block';
+            } else {
+                w += Math.random() * 4;
+                if (w > 100) w = 100;
+                bar.style.width = w + '%';
+                perc.innerText = Math.floor(w) + '%';
+                if(w > 20) status.innerText = "> FETCHING METADATA...";
+                if(w > 50) status.innerText = "> BYPASSING FIREWALL...";
+                if(w > 80) status.innerText = "> INJECTING CHERNOBYL.JAR...";
+            }
+        }, 120);
+    }
+</script>
+
+</body>
+  </html>
+  
